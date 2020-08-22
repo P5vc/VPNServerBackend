@@ -10,6 +10,7 @@ from ipaddress import IPv4Network , IPv4Address
 
 ####################### Constants #######################
 SERVER_ADDRESS = argv[1]
+SERVER_ID = argv[2]
 
 WG_PORT = 3270
 SHADOWSOCKS_BASE_PORT = 3271 # Must be significantly less than 65535
@@ -136,7 +137,7 @@ def wgRefresh():
 	run('ip link del dev wg0' , shell = True)
 	run('wg-quick up wg0' , shell = True)
 
-# Return the next available WireGuard IPs:
+# Return the next available WireGuard IP block:
 def wgAvailIP(wgConfigData):
 	serverIPAddresses = []
 	serverIPAddressesTemp = wgConfigData['server']['addresses'].split()
@@ -165,6 +166,16 @@ def ssGenPass(length = 50):
 		choices.append(choice(charOptions))
 
 	return ''.join(choices)
+
+
+# Handle shadowsocks config data:
+def ssConfigDataHandler(data = False):
+	if (data):
+		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
+			pickle.dump(data , ssConfigDataFile)
+	else:
+		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
+			return pickle.load(ssConfigDataFile)
 
 
 # Return the next two available ports:
@@ -217,4 +228,46 @@ if ((not(Path('/root/WireGuardConfigData.dat').is_file())) or (not(Path('/root/S
 
 	# Save a default Shadowsocks user configuration:
 	ssConfigDataHandler({'defaultUser' : {'standardPort' : SHADOWSOCKS_BASE_PORT , 'pluginPort' : (SHADOWSOCKS_BASE_PORT + 1) , 'standardPassword' : ssGenPass() , 'pluginPassword' : ssGenPass()}})
+
+	exit()
+
+# Main tasks:
+# Create a list of desired user profiles:
+users = []
+with open('/root/' + SERVER_ID + '.conf' , 'r') as usersFile:
+	users = usersFile.read().split()
+
+# Add/Remove users to/from WireGuard configuration data:
+wgConfigData = {}
+wgConfigDataOld = wgConfigDataHandler()
+
+wgConfigData['server'] = wgConfigDataOld['server']
+wgConfigData['server']['addresses'] = ''
+
+for user in users:
+	if (user in wgConfigDataOld):
+		wgConfigData[user] = wgConfigDataOld[user]
+
+		serverIPAddress = ''
+		tempAllowedIPsList = wgConfigData[user][0]['allowedIPs'].split()
+		for item in tempAllowedIPsList:
+			if ('/32' in item):
+				serverIPAddress = str((IPv4Address(item[:(len(item) - 3)]) - 1))
+
+		wgConfigData['server']['addresses'] += ('Address = ' + serverIPAddress + '/29\n')
+	else:
+		wgConfigData[user] = []
+
+		serverIPAddress , userIPsList = wgAvailIP(wgConfigData)
+		wgConfigData['server']['addresses'] += ('Address = ' + serverIPAddress + '\n')
+
+		for userNum in range(0 , 5):
+			privKey , pubKey = wgGenKeys()
+			psk = wgGenKeys(genPSK = True)
+
+			wgConfigData[user].append({'header' : ['[Peer]\n' , '[Interface]\n'] , 'comment' : '# ' + user + ' #' + str(userNum + 1) + '\n' , 'privateKey' : ('PrivateKey = ' + privKey + '\n') , 'publicKey' : ('PublicKey = ' + pubKey + '\n') , 'psk' : ('PresharedKey = ' + psk + '\n') , 'allowedIPs' : ('AllowedIPs = ' + userIPsList[userNum][:len(userIPsList[userNum]) - 3] + '/32\n') , 'addresses' : ('Address = ' + userIPsList[userNum][:len(userIPsList[userNum]) - 3] + '/29\n') , 'dns' : ('DNS = 172.31.253.253\n')})
+
+wgConfigDataHandler(wgConfigData)
+
+wgRefresh()
 ############## End of Daily Update/Maintenance Tasks ##############
