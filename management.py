@@ -1,6 +1,7 @@
 from string import ascii_letters , digits
 from sys import argv
 from pathlib import Path
+from shutil import rmtree
 from subprocess import call as run
 from pickle import dump , load
 from secrets import choice
@@ -153,6 +154,51 @@ def wgAvailIP(wgConfigData):
 		if (not(address[:(len(address) - 3)] in serverIPAddresses)):
 			return address , wgGetNets()[index]
 		index += 1
+
+# Create WireGuard client configuration files:
+def wgGenClientConfigs():
+	rmtree('/root/configs/WireGuard')
+	Path('/root/configs/WireGuard').mkdir()
+
+	wgConfigData = wgConfigDataHandler()
+
+	for user in wgConfigData:
+		if (user == 'server'):
+			continue
+
+		for userNum in range(0 , 5):
+			userConfigString = (wgConfigData[user][userNum]['header'][1] + wgConfigData[user][userNum]['privateKey'] + wgConfigData[user][userNum]['addresses'] + wgConfigData[user][userNum]['dns'] + '\n' + wgConfigData['server']['header'][1] + wgConfigData['server']['publicKey'] + wgConfigData[user][userNum]['psk'] + 'AllowedIPs = 0.0.0.0/0, ::/0\n' + wgConfigData['server']['endpoint'])
+
+			with open(('/root/configs/WireGuard/' + user + '-' + str(userNum + 1) + '.conf') , 'w') as userConfigFile:
+				userConfigFile.write(userConfigString)
+
+			configUUID = str(uuid.uuid4()).upper()
+
+			### Start of Custom Apple Device Configuration Profile ###
+			mobileConfigFileString = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>PayloadContent</key>\n\t<array>\n<dict>\n\t<key>IPv4</key>\n<dict>\n\t<key>OverridePrimary</key>\n\t<integer>1</integer>\n</dict>\n\t<key>PayloadDescription</key>\n\t<string>Configures VPN settings</string>\n\t<key>PayloadDisplayName</key>\n\t<string>PriveasyVPN</string>\n\t<key>PayloadIdentifier</key>\n'
+			mobileConfigFileString += ('\t<string>com.apple.vpn.managed.PriveasyVPN' + configUUID + '</string>\n')
+			mobileConfigFileString += '\t<key>PayloadType</key>\n\t<string>com.apple.vpn.managed</string>\n\t<key>PayloadUUID</key>\n'
+			mobileConfigFileString += ('\t<string>PriveasyVPN' + configUUID + '</string>\n')
+			mobileConfigFileString += '\t<key>PayloadVersion</key>\n\t<integer>1</integer>\n\t<key>Proxies</key>\n\t<dict>\n\t\t<key>HTTPEnable</key>\n\t\t<integer>0</integer>\n\t\t<key>HTTPSEnable</key>\n\t\t<integer>0</integer>\n\t</dict>\n\t<key>UserDefinedName</key>\n\t<string>Priveasy VPN</string>\n\t<key>VPN</key>\n\t<dict>\n<key>OnDemandEnabled</key>\n<integer>1</integer>\n<key>OnDemandRules</key>\n<array>\n<dict>\n\t<key>Action</key>\n\t<string>Connect</string>\n\t<key>InterfaceTypeMatch</key>\n\t<string>WiFi</string>\n\t<key>URLStringProbe</key>\n\t<string>http://captive.apple.com/hotspot-detect.html</string>\n</dict>\n<dict>\n\t<key>Action</key>\n\t<string>Connect</string>\n\t<key>InterfaceTypeMatch</key>\n\t<string>Cellular</string>\n\t<key>URLStringProbe</key>\n\t<string>http://captive.apple.com/hotspot-detect.html</string>\n</dict>\n<dict>\n\t<key>Action</key>\n\t<string>Disconnect</string>\n</dict>\n</array>\n<key>AuthenticationMethod</key>\n<string>Password</string>\n<key>RemoteAddress</key>\n'
+			mobileConfigFileString += ('<string>' + SERVER_IP + ':' + str(WG_PORT) + '</string>\n')
+			mobileConfigFileString += '</dict>\n<key>VPNSubType</key>\n<string>com.wireguard.ios</string>\n<key>VPNType</key>\n<string>VPN</string>\n<key>VendorConfig</key>\n<dict>\n\t<key>WgQuickConfig</key>\n\t<string>[Interface]\n'
+			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['privateKey'])
+			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['addresses'])
+			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['dns'])
+			mobileConfigFileString += ('\n\t' + wgConfigData['server']['header'][1])
+			mobileConfigFileString += ('\t' + wgConfigData['server']['publicKey'])
+			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['psk'])
+			mobileConfigFileString += '\tAllowedIPs = 0.0.0.0/0, ::/0\n'
+			mobileConfigFileString += ('\t' + wgConfigData['server']['endpoint'])
+			mobileConfigFileString += '</string>\n</dict>\n</dict>  </array>\n<key>PayloadDisplayName</key>\n<string>Priveasy VPN</string>\n<key>PayloadIdentifier</key>\n'
+			mobileConfigFileString += ('<string>donut.local.' + str(uuid.uuid4()).upper() + '</string>\n')
+			mobileConfigFileString += '<key>PayloadOrganization</key>\n<string>PriveasyVPN</string>\n<key>PayloadRemovalDisallowed</key>\n<false/>\n<key>PayloadType</key>\n<string>Configuration</string>\n<key>PayloadUUID</key>\n'
+			mobileConfigFileString += ('<string>' + str(uuid.uuid4()).upper() + '</string>\n')
+			mobileConfigFileString += '<key>PayloadVersion</key>\n<integer>1</integer>\n</dict>\n</plist>\n'
+			### End of Custom Apple Device Configuration Profile ###
+
+			with open(('/root/configs/WireGuard/' + user + '-' + str(userNum + 1) + '.mobileconfig') , 'w') as userConfigFile:
+				userConfigFile.write(mobileConfigFileString)
 ############## End of WireGuard Support Functions ##############
 
 
@@ -270,4 +316,6 @@ for user in users:
 wgConfigDataHandler(wgConfigData)
 
 wgRefresh()
+
+wgGenClientConfigs()
 ############## End of Daily Update/Maintenance Tasks ##############
