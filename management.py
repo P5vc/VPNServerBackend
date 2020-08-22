@@ -1,4 +1,6 @@
 from string import ascii_letters , digits
+from base64 import b64encode
+from uuid import uuid4
 from sys import argv
 from pathlib import Path
 from shutil import rmtree
@@ -172,7 +174,7 @@ def wgGenClientConfigs():
 			with open(('/root/configs/WireGuard/' + user + '-' + str(userNum + 1) + '.conf') , 'w') as userConfigFile:
 				userConfigFile.write(userConfigString)
 
-			configUUID = str(uuid.uuid4()).upper()
+			configUUID = str(uuid4()).upper()
 
 			### Start of Custom Apple Device Configuration Profile ###
 			mobileConfigFileString = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>PayloadContent</key>\n\t<array>\n<dict>\n\t<key>IPv4</key>\n<dict>\n\t<key>OverridePrimary</key>\n\t<integer>1</integer>\n</dict>\n\t<key>PayloadDescription</key>\n\t<string>Configures VPN settings</string>\n\t<key>PayloadDisplayName</key>\n\t<string>PriveasyVPN</string>\n\t<key>PayloadIdentifier</key>\n'
@@ -191,9 +193,9 @@ def wgGenClientConfigs():
 			mobileConfigFileString += '\tAllowedIPs = 0.0.0.0/0, ::/0\n'
 			mobileConfigFileString += ('\t' + wgConfigData['server']['endpoint'])
 			mobileConfigFileString += '</string>\n</dict>\n</dict>  </array>\n<key>PayloadDisplayName</key>\n<string>Priveasy VPN</string>\n<key>PayloadIdentifier</key>\n'
-			mobileConfigFileString += ('<string>donut.local.' + str(uuid.uuid4()).upper() + '</string>\n')
+			mobileConfigFileString += ('<string>donut.local.' + str(uuid4()).upper() + '</string>\n')
 			mobileConfigFileString += '<key>PayloadOrganization</key>\n<string>PriveasyVPN</string>\n<key>PayloadRemovalDisallowed</key>\n<false/>\n<key>PayloadType</key>\n<string>Configuration</string>\n<key>PayloadUUID</key>\n'
-			mobileConfigFileString += ('<string>' + str(uuid.uuid4()).upper() + '</string>\n')
+			mobileConfigFileString += ('<string>' + str(uuid4()).upper() + '</string>\n')
 			mobileConfigFileString += '<key>PayloadVersion</key>\n<integer>1</integer>\n</dict>\n</plist>\n'
 			### End of Custom Apple Device Configuration Profile ###
 
@@ -291,7 +293,7 @@ def ssGenClientConfigs():
 	ssConfigData = ssConfigDataHandler()
 
 	for user in ssConfigData:
-		standardURL = ('ss://' + str(base64.b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_IP + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
+		standardURL = ('ss://' + str(b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_IP + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
 
 		with open(('/root/configs/Shadowsocks/' + user + '.conf') , 'w') as userConfigFile:
 			userConfigFile.write('Shadowsocks Connection Information:\n\n\nStandard Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['standardPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['standardPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nProxy Port:\t\t1080\n\nMobile Configuration URL:\n' + standardURL + '\n\n\nObfuscated Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['pluginPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['pluginPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nPlugin Program:\t\tv2ray-plugin\nPlugin Options:\t\tclient\nProxy Port:\t\t1080\n')
