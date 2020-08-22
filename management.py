@@ -15,6 +15,8 @@ from ipaddress import IPv4Network , IPv4Address
 SERVER_ADDRESS = argv[1]
 SERVER_ID = argv[2]
 
+NETWORK_INTERFACE = argv[3]
+
 WG_PORT = 3270
 SHADOWSOCKS_BASE_PORT = 3271 # Must be significantly less than 65535
 ################### End of Constants ###################
@@ -302,6 +304,85 @@ def ssGenClientConfigs():
 
 
 ################ General/Mixed Support Functions ################
+# Update ufw rules:
+def ufwUpdate():
+	# Get a list of the network addresses being used:
+	usedNetAddresses = []
+
+	wgConfigData = wgConfigDataHandler()
+
+	serverIPAddresses = []
+	serverIPAddressesTemp = wgConfigData['server']['addresses'].split()
+	for item in serverIPAddressesTemp:
+		if ('172.16.' in item):
+			serverIPAddresses.append(ipaddress.IPv4Network(item[:len(item) - 3] + '/32'))
+	for serverIP in serverIPAddresses:
+		for netAddr in wgGetNets(getNetAddresses = True):
+			netAddr = IPv4Network(netAddr)
+			if (netAddr.overlaps(serverIP)):
+				usedNetAddresses.append(str(netAddr))
+
+	usedNetAddresses.append('169.254.0.0/16')
+
+	# Reset ufw:
+	run('yes | ufw reset' , shell = True)
+	# Remove rules backups:
+	run('rm /etc/ufw/before.rules.* /etc/ufw/after.rules.* /etc/ufw/user.rules.* /etc/ufw/before6.rules.* /etc/ufw/after6.rules.* /etc/ufw/user6.rules.*' , shell = True)
+
+	# Edit the ufw before rules file:
+	ufwConfigFileContents = ''
+	addedLinesReached = False
+	with open('/etc/ufw/before.rules' , 'r') as ufwFile:
+		for line in ufwFile.readlines():
+			if (addedLinesReached):
+				if ('###########################################################################' in line):
+					addedLinesReached = False
+					continue
+				else:
+					continue
+
+			if ('################## THESE LINES WERE MODIFIED BY PRIVEASY ##################' in line):
+				addedLinesReached = True
+			if ('# drop INVALID packets' in line):
+				ufwConfigFileContents += ('\n\n################## THESE LINES WERE MODIFIED BY PRIVEASY ##################\n# Accept packets using the encapsulation protocol:\n-A ufw-before-input -p esp -j ACCEPT\n-A ufw-before-input -p ah -j ACCEPT\n\n# Accept DNS traffic to the local DNS resolver (dnscrypt-proxy):\n-A INPUT -d 172.31.253.253 -p udp --dport 53 -j ACCEPT\n\n# Drop traffic between VPN clients:\n')
+				for netAddr in usedNetAddresses:
+					usedNetAddresses2 = []
+					for netAddr2 in usedNetAddresses:
+						if (netAddr2 != netAddr):
+							usedNetAddresses2.append(netAddr2)
+					ufwConfigFileContents += ('-A ufw-before-input -s ' + netAddr + ' -d ' + ','.join(usedNetAddresses2) + ' -j DROP\n')
+				ufwConfigFileContents += ('-A ufw-before-input -s ' + '169.254.0.0/16' + ' -d ' + '169.254.0.0/16' + ' -j DROP\n')
+				ufwConfigFileContents += ('\n# Drop traffic to the link-local network:\n-A ufw-before-forward -s ' + ','.join(usedNetAddresses) + ' -d 169.254.0.0/16 -j DROP\n\n# Drop SMB/CIFS traffic that requests to be forwarded:\n-A ufw-before-forward -p tcp --dport 445 -j DROP\n\n# Drop NETBIOS trafic that requests to be forwarded:\n-A ufw-before-forward -p udp -m multiport --ports 137,138 -j DROP\n-A ufw-before-forward -p tcp -m multiport --ports 137,139 -j DROP\n\n# Forward any traffic from the WireGuard VPN network:\n-A ufw-before-forward -m conntrack --ctstate NEW -s ' + ','.join(usedNetAddresses) + ' -m policy --pol none --dir in -j ACCEPT\n\n')
+
+				ufwConfigFileContents += '# Limit the number of simultaneous shadowsocks connections per user:\n'
+
+				ssConfigData = ssConfigDataHandler()
+
+				for user in ssConfigData:
+					ufwConfigFileContents += '-A ufw-before-input -p tcp --syn --dport ' + str(ssConfigData[user]['standardPort']) + ' -m connlimit --connlimit-above 3 -j REJECT --reject-with tcp-reset\n'
+					ufwConfigFileContents += '-A ufw-before-input -p tcp --syn --dport ' + str(ssConfigData[user]['pluginPort']) + ' -m connlimit --connlimit-above 2 -j REJECT --reject-with tcp-reset\n'
+
+				ufwConfigFileContents += '\n###########################################################################\n\n'
+				ufwConfigFileContents += line
+				continue
+			ufwConfigFileContents += line
+
+	with open('/etc/ufw/before.rules' , 'w') as ufwFile:
+		ufwFile.write(ufwConfigFileContents)
+
+	# Append additional rules to the ufw before rules file, to enable NAT:
+	with open('/etc/ufw/before.rules' , 'a') as ufwFile:
+		ufwFile.write('\n\n\n################## THESE LINES WERE MODIFIED BY PRIVEASY ##################' + '\n*nat\n\n:PREROUTING ACCEPT [0:0]\n:POSTROUTING ACCEPT [0:0]\n\n-A POSTROUTING -s ' + ','.join(usedNetAddresses) + ' -o ' + NETWORK_INTERFACE + ' -m policy --pol none --dir out -j MASQUERADE\n\nCOMMIT\n###########################################################################')
+
+	# Enable and configure ufw:
+	run('yes | ufw enable && ufw allow ' + str(WG_PORT) , shell = True)
+
+	ssConfigData = ssConfigDataHandler()
+	for user in ssConfigData:
+		run('ufw allow ' + str(ssConfigData[user]['standardPort']) , shell = True)
+		run('ufw allow ' + str(ssConfigData[user]['pluginPort']) , shell = True)
+
+	run('ufw reload' , shell = True)
 ############# End of General/Mixed Support Functions #############
 
 
@@ -391,4 +472,6 @@ ssConfigDataHandler(ssConfigData)
 ssRefresh()
 
 ssGenClientConfigs()
+
+ufwUpdate()
 ############## End of Daily Update/Maintenance Tasks ##############
