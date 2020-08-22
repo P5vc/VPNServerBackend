@@ -281,6 +281,20 @@ def ssRefresh():
 	for user in ssConfigData:
 		run('/usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-standard.json -f /etc/shadowsocks-libev/PIDs/' + user + '-standard' , shell = True)
 		run('/usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-plugin.json -f /etc/shadowsocks-libev/PIDs/' + user + '-plugin' , shell = True)
+
+
+# Create Shadowsocks client configuration files:
+def ssGenClientConfigs():
+	rmtree('/root/configs/Shadowsocks')
+	Path('/root/configs/Shadowsocks').mkdir()
+
+	ssConfigData = ssConfigDataHandler()
+
+	for user in ssConfigData:
+		standardURL = ('ss://' + str(base64.b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_IP + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
+
+		with open(('/root/configs/Shadowsocks/' + user + '.conf') , 'w') as userConfigFile:
+			userConfigFile.write('Shadowsocks Connection Information:\n\n\nStandard Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['standardPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['standardPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nProxy Port:\t\t1080\n\nMobile Configuration URL:\n' + standardURL + '\n\n\nObfuscated Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['pluginPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['pluginPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nPlugin Program:\t\tv2ray-plugin\nPlugin Options:\t\tclient\nProxy Port:\t\t1080\n')
 ############## End of Shadowsocks Support Functions ##############
 
 
@@ -373,4 +387,6 @@ for user in users:
 ssConfigDataHandler(ssConfigData)
 
 ssRefresh()
+
+ssGenClientConfigs()
 ############## End of Daily Update/Maintenance Tasks ##############
