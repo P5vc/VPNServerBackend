@@ -242,6 +242,45 @@ def ssAvailPorts(ssConfigData):
 				portTwo = i
 			else:
 				portOne = i
+
+
+# Update shadowsocks server configs, and start the correct processes at boot:
+def ssRefresh():
+	# Clear old configs:
+	rmtree('/etc/shadowsocks-libev')
+	Path('/etc/shadowsocks-libev').mkdir()
+	# Create PID directory:
+	Path('/etc/shadowsocks-libev/PIDs').mkdir()
+
+	ssConfigData = ssConfigDataHandler()
+
+	for user in ssConfigData:
+		with open('/etc/shadowsocks-libev/' + user + '-standard.json' , 'w') as userConfigFile:
+			userConfigFile.write('{\n    "server":["' + SERVER_ADDRESS + '"],\n    "mode":"tcp_and_udp",\n    "server_port":' + str(ssConfigData[user]['standardPort']) + ',\n    "local_port":1080,\n    "password":"' + ssConfigData[user]['standardPassword'] + '",\n    "timeout":60,\n    "method":"chacha20-ietf-poly1305",\n    "fast_open":true,\n    "acl":"/root/server_block_local.acl",\n}')
+		with open('/etc/shadowsocks-libev/' + user + '-plugin.json' , 'w') as userConfigFile:
+			userConfigFile.write('{\n    "server":["' + SERVER_ADDRESS + '"],\n    "mode":"tcp_and_udp",\n    "server_port":' + str(ssConfigData[user]['pluginPort']) + ',\n    "local_port":1080,\n    "password":"' + ssConfigData[user]['pluginPassword'] + '",\n    "timeout":60,\n    "method":"chacha20-ietf-poly1305",\n    "fast_open":true,\n    "acl":"/root/server_block_local.acl",\n    "plugin":"/root/go/bin/v2ray-plugin",\n    "plugin_opts":"server"\n}')
+
+	cronFileContents = ''
+	with open('/etc/cron.d/priveasy' , 'r') as cronFile:
+		for line in cronFile.readlines():
+			if ('# Automatically relaunch ss-server processes for each client:' in line):
+				cronFileContents += line
+				for user in ssConfigData:
+					cronFileContents += '@reboot root /usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-standard.json -f /etc/shadowsocks-libev/PIDs/' + user + '-standard\n'
+					cronFileContents += '@reboot root /usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-plugin.json -f /etc/shadowsocks-libev/PIDs/' + user + '-plugin\n'
+				break
+			else:
+				cronFileContents += line
+
+	with open('/etc/cron.d/priveasy' , 'w') as cronFile:
+		cronFile.write(cronFileContents)
+
+	# Restart all Shadowsocks server processes:
+	run('pkill ss-server' , shell = True)
+
+	for user in ssConfigData:
+		run('/usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-standard.json -f /etc/shadowsocks-libev/PIDs/' + user + '-standard' , shell = True)
+		run('/usr/bin/ss-server -c /etc/shadowsocks-libev/' + user + '-plugin.json -f /etc/shadowsocks-libev/PIDs/' + user + '-plugin' , shell = True)
 ############## End of Shadowsocks Support Functions ##############
 
 
@@ -318,4 +357,20 @@ wgConfigDataHandler(wgConfigData)
 wgRefresh()
 
 wgGenClientConfigs()
+
+
+# Add/Remove users to/from Shadowsocks configuration data:
+ssConfigData = {}
+ssConfigDataOld = ssConfigDataHandler()
+
+for user in users:
+	if (user in ssConfigDataOld):
+		ssConfigData[user] = ssConfigDataOld[user]
+	else:
+		standardPort , pluginPort = ssAvailPorts(ssConfigData)
+		ssConfigData[user] = {'standardPort' : standardPort , 'pluginPort' : pluginPort , 'standardPassword' : ssGenPass() , 'pluginPassword' : ssGenPass()}
+
+ssConfigDataHandler(ssConfigData)
+
+ssRefresh()
 ############## End of Daily Update/Maintenance Tasks ##############
