@@ -222,10 +222,10 @@ def ssGenPass(length = 50):
 def ssConfigDataHandler(data = False):
 	if (data):
 		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
-			pickle.dump(data , ssConfigDataFile)
+			dump(data , ssConfigDataFile)
 	else:
 		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
-			return pickle.load(ssConfigDataFile)
+			return load(ssConfigDataFile)
 
 
 # Return the next two available ports:
