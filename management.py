@@ -315,7 +315,7 @@ def ufwUpdate():
 	serverIPAddressesTemp = wgConfigData['server']['addresses'].split()
 	for item in serverIPAddressesTemp:
 		if ('172.16.' in item):
-			serverIPAddresses.append(ipaddress.IPv4Network(item[:len(item) - 3] + '/32'))
+			serverIPAddresses.append(IPv4Network(item[:len(item) - 3] + '/32'))
 	for serverIP in serverIPAddresses:
 		for netAddr in wgGetNets(getNetAddresses = True):
 			netAddr = IPv4Network(netAddr)
