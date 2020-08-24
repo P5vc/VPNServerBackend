@@ -184,7 +184,7 @@ def wgGenClientConfigs():
 			mobileConfigFileString += '\t<key>PayloadType</key>\n\t<string>com.apple.vpn.managed</string>\n\t<key>PayloadUUID</key>\n'
 			mobileConfigFileString += ('\t<string>PriveasyVPN' + configUUID + '</string>\n')
 			mobileConfigFileString += '\t<key>PayloadVersion</key>\n\t<integer>1</integer>\n\t<key>Proxies</key>\n\t<dict>\n\t\t<key>HTTPEnable</key>\n\t\t<integer>0</integer>\n\t\t<key>HTTPSEnable</key>\n\t\t<integer>0</integer>\n\t</dict>\n\t<key>UserDefinedName</key>\n\t<string>Priveasy VPN</string>\n\t<key>VPN</key>\n\t<dict>\n<key>OnDemandEnabled</key>\n<integer>1</integer>\n<key>OnDemandRules</key>\n<array>\n<dict>\n\t<key>Action</key>\n\t<string>Connect</string>\n\t<key>InterfaceTypeMatch</key>\n\t<string>WiFi</string>\n\t<key>URLStringProbe</key>\n\t<string>http://captive.apple.com/hotspot-detect.html</string>\n</dict>\n<dict>\n\t<key>Action</key>\n\t<string>Connect</string>\n\t<key>InterfaceTypeMatch</key>\n\t<string>Cellular</string>\n\t<key>URLStringProbe</key>\n\t<string>http://captive.apple.com/hotspot-detect.html</string>\n</dict>\n<dict>\n\t<key>Action</key>\n\t<string>Disconnect</string>\n</dict>\n</array>\n<key>AuthenticationMethod</key>\n<string>Password</string>\n<key>RemoteAddress</key>\n'
-			mobileConfigFileString += ('<string>' + SERVER_IP + ':' + str(WG_PORT) + '</string>\n')
+			mobileConfigFileString += ('<string>' + SERVER_ADDRESS + ':' + str(WG_PORT) + '</string>\n')
 			mobileConfigFileString += '</dict>\n<key>VPNSubType</key>\n<string>com.wireguard.ios</string>\n<key>VPNType</key>\n<string>VPN</string>\n<key>VendorConfig</key>\n<dict>\n\t<key>WgQuickConfig</key>\n\t<string>[Interface]\n'
 			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['privateKey'])
 			mobileConfigFileString += ('\t' + wgConfigData[user][userNum]['addresses'])
@@ -295,10 +295,10 @@ def ssGenClientConfigs():
 	ssConfigData = ssConfigDataHandler()
 
 	for user in ssConfigData:
-		standardURL = ('ss://' + str(b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_IP + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
+		standardURL = ('ss://' + str(b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_ADDRESS + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
 
 		with open(('/root/configs/Shadowsocks/' + user + '.conf') , 'w') as userConfigFile:
-			userConfigFile.write('Shadowsocks Connection Information:\n\n\nStandard Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['standardPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['standardPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nProxy Port:\t\t1080\n\nMobile Configuration URL:\n' + standardURL + '\n\n\nObfuscated Connection:\n\nServer IP:\t\t' + SERVER_IP + '\nServer Port:\t\t' + str(ssConfigData[user]['pluginPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['pluginPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nPlugin Program:\t\tv2ray-plugin\nPlugin Options:\t\tclient\nProxy Port:\t\t1080\n')
+			userConfigFile.write('Shadowsocks Connection Information:\n\n\nStandard Connection:\n\nServer IP:\t\t' + SERVER_ADDRESS + '\nServer Port:\t\t' + str(ssConfigData[user]['standardPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['standardPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nProxy Port:\t\t1080\n\nMobile Configuration URL:\n' + standardURL + '\n\n\nObfuscated Connection:\n\nServer IP:\t\t' + SERVER_ADDRESS + '\nServer Port:\t\t' + str(ssConfigData[user]['pluginPort']) + '\nPassword:\t\t' + str(ssConfigData[user]['pluginPassword']) + '\nEncryption Method:\tchacha20-ietf-poly1305\nPlugin Program:\t\tv2ray-plugin\nPlugin Options:\t\tclient\nProxy Port:\t\t1080\n')
 ############## End of Shadowsocks Support Functions ##############
 
 
