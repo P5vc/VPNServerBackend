@@ -224,7 +224,7 @@ def ssConfigDataHandler(data = False):
 		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
 			dump(data , ssConfigDataFile)
 	else:
-		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
+		with open('/root/ShadowsocksConfigData.dat' , 'rb') as ssConfigDataFile:
 			return load(ssConfigDataFile)
 
 
