@@ -109,19 +109,9 @@ def wgGenKeys(genPSK = False):
 		return privKey , pubKey
 
 
-# Handle WireGuard config data:
-def wgConfigDataHandler(data = False):
-	if (data):
-		with open('/root/WireGuardConfigData.dat' , 'wb') as wgConfigDataFile:
-			dump(data , wgConfigDataFile)
-	else:
-		with open('/root/WireGuardConfigData.dat' , 'rb') as wgConfigDataFile:
-			return load(wgConfigDataFile)
-
-
 # Write WireGuard config file and restart the interface:
 def wgRefresh():
-	wgConfigData = wgConfigDataHandler()
+	wgConfigData = configDataHandler('WireGuard')
 	wgConfigString = ''
 
 	# Add server config data:
@@ -142,6 +132,7 @@ def wgRefresh():
 	run('ip link del dev wg0' , shell = True)
 	run('wg-quick up wg0' , shell = True)
 
+
 # Return the next available WireGuard IP block:
 def wgAvailIP(wgConfigData):
 	serverIPAddresses = []
@@ -159,12 +150,13 @@ def wgAvailIP(wgConfigData):
 			return address , wgGetNets()[index]
 		index += 1
 
+
 # Create WireGuard client configuration files:
 def wgGenClientConfigs():
 	rmtree('/root/configs/WireGuard')
 	Path('/root/configs/WireGuard').mkdir()
 
-	wgConfigData = wgConfigDataHandler()
+	wgConfigData = configDataHandler('WireGuard')
 
 	for user in wgConfigData:
 		if (user == 'server'):
@@ -218,16 +210,6 @@ def ssGenPass(length = 50):
 	return ''.join(choices)
 
 
-# Handle shadowsocks config data:
-def ssConfigDataHandler(data = False):
-	if (data):
-		with open('/root/ShadowsocksConfigData.dat' , 'wb') as ssConfigDataFile:
-			dump(data , ssConfigDataFile)
-	else:
-		with open('/root/ShadowsocksConfigData.dat' , 'rb') as ssConfigDataFile:
-			return load(ssConfigDataFile)
-
-
 # Return the next two available ports:
 def ssAvailPorts(ssConfigData):
 	takenPorts = []
@@ -256,7 +238,7 @@ def ssRefresh():
 	# Create PID directory:
 	Path('/etc/shadowsocks-libev/PIDs').mkdir()
 
-	ssConfigData = ssConfigDataHandler()
+	ssConfigData = configDataHandler('Shadowsocks')
 
 	for user in ssConfigData:
 		with open('/etc/shadowsocks-libev/' + user + '-standard.json' , 'w') as userConfigFile:
@@ -292,7 +274,7 @@ def ssGenClientConfigs():
 	rmtree('/root/configs/Shadowsocks')
 	Path('/root/configs/Shadowsocks').mkdir()
 
-	ssConfigData = ssConfigDataHandler()
+	ssConfigData = configDataHandler('Shadowsocks')
 
 	for user in ssConfigData:
 		standardURL = ('ss://' + str(b64encode(('chacha20-ietf-poly1305:' + ssConfigData[user]['standardPassword'] + '@' + SERVER_ADDRESS + ':' + str(ssConfigData[user]['standardPort'])).encode('utf-8')) , 'utf-8'))
@@ -304,12 +286,22 @@ def ssGenClientConfigs():
 
 
 ################ General/Mixed Support Functions ################
+# Handle configuration data:
+def configDataHandler(application , data = False):
+	if (data):
+		with open(f'/root/{ application }ConfigData.dat' , 'wb') as configDataFile:
+			dump(data , configDataFile)
+	else:
+		with open('/root/{ application }ConfigData.dat' , 'rb') as configDataFile:
+			return load(configDataFile)
+
+
 # Update ufw rules:
 def ufwUpdate():
 	# Get a list of the network addresses being used:
 	usedNetAddresses = []
 
-	wgConfigData = wgConfigDataHandler()
+	wgConfigData = configDataHandler('WireGuard')
 
 	serverIPAddresses = []
 	serverIPAddressesTemp = wgConfigData['server']['addresses'].split()
@@ -356,7 +348,7 @@ def ufwUpdate():
 
 				ufwConfigFileContents += '# Limit the number of simultaneous shadowsocks connections per user:\n'
 
-				ssConfigData = ssConfigDataHandler()
+				ssConfigData = configDataHandler('Shadowsocks')
 
 				for user in ssConfigData:
 					ufwConfigFileContents += '-A ufw-before-input -p tcp --syn --dport ' + str(ssConfigData[user]['standardPort']) + ' -m connlimit --connlimit-above 3 -j REJECT --reject-with tcp-reset\n'
@@ -377,7 +369,7 @@ def ufwUpdate():
 	# Enable and configure ufw:
 	run('yes | ufw enable && ufw allow ' + str(WG_PORT) , shell = True)
 
-	ssConfigData = ssConfigDataHandler()
+	ssConfigData = configDataHandler('Shadowsocks')
 	for user in ssConfigData:
 		run('ufw allow ' + str(ssConfigData[user]['standardPort']) , shell = True)
 		run('ufw allow ' + str(ssConfigData[user]['pluginPort']) , shell = True)
@@ -398,7 +390,7 @@ if ((not(Path('/root/WireGuardConfigData.dat').is_file())) or (not(Path('/root/S
 	# Save a default WireGuard configuration:
 	wgConfigData = {'server' : {'header' : ['[Interface]\n' , '[Peer]\n'] , 'comment' : '# Server Config\n' , 'addresses' : configServerAddresses , 'port' : ('ListenPort = ' + str(WG_PORT) + '\n') , 'privateKey' : ('PrivateKey = ' + serverPrivKey + '\n') , 'publicKey' : ('PublicKey = ' + serverPubKey + '\n') , 'saveConfig' : 'SaveConfig = false\n' , 'allowedIPs' : 'AllowedIPs = 0.0.0.0/0, ::/0\n' , 'endpoint' : ('Endpoint = ' + SERVER_ADDRESS + ':' + str(WG_PORT) + '\n')}}
 
-	wgConfigDataHandler(wgConfigData)
+	configDataHandler('WireGuard' , wgConfigData)
 
 	wgRefresh()
 
@@ -409,7 +401,7 @@ if ((not(Path('/root/WireGuardConfigData.dat').is_file())) or (not(Path('/root/S
 	run('systemctl disable shadowsocks-libev.service' , shell = True)
 
 	# Save a default Shadowsocks user configuration:
-	ssConfigDataHandler({'defaultUser' : {'standardPort' : SHADOWSOCKS_BASE_PORT , 'pluginPort' : (SHADOWSOCKS_BASE_PORT + 1) , 'standardPassword' : ssGenPass() , 'pluginPassword' : ssGenPass()}})
+	configDataHandler('Shadowsocks' , {'defaultUser' : {'standardPort' : SHADOWSOCKS_BASE_PORT , 'pluginPort' : (SHADOWSOCKS_BASE_PORT + 1) , 'standardPassword' : ssGenPass() , 'pluginPassword' : ssGenPass()}})
 
 	exit()
 
@@ -421,7 +413,7 @@ with open('/root/' + SERVER_ID + '.conf' , 'r') as usersFile:
 
 # Add/Remove users to/from WireGuard configuration data:
 wgConfigData = {}
-wgConfigDataOld = wgConfigDataHandler()
+wgConfigDataOld = configDataHandler('WireGuard')
 
 wgConfigData['server'] = wgConfigDataOld['server']
 wgConfigData['server']['addresses'] = ''
@@ -449,7 +441,7 @@ for user in users:
 
 			wgConfigData[user].append({'header' : ['[Peer]\n' , '[Interface]\n'] , 'comment' : '# ' + user + ' #' + str(userNum + 1) + '\n' , 'privateKey' : ('PrivateKey = ' + privKey + '\n') , 'publicKey' : ('PublicKey = ' + pubKey + '\n') , 'psk' : ('PresharedKey = ' + psk + '\n') , 'allowedIPs' : ('AllowedIPs = ' + userIPsList[userNum][:len(userIPsList[userNum]) - 3] + '/32\n') , 'addresses' : ('Address = ' + userIPsList[userNum][:len(userIPsList[userNum]) - 3] + '/29\n') , 'dns' : ('DNS = 172.31.253.253\n')})
 
-wgConfigDataHandler(wgConfigData)
+configDataHandler('WireGuard' , wgConfigData)
 
 wgRefresh()
 
@@ -458,7 +450,7 @@ wgGenClientConfigs()
 
 # Add/Remove users to/from Shadowsocks configuration data:
 ssConfigData = {}
-ssConfigDataOld = ssConfigDataHandler()
+ssConfigDataOld = configDataHandler('Shadowsocks')
 
 for user in users:
 	if (user in ssConfigDataOld):
@@ -467,7 +459,7 @@ for user in users:
 		standardPort , pluginPort = ssAvailPorts(ssConfigData)
 		ssConfigData[user] = {'standardPort' : standardPort , 'pluginPort' : pluginPort , 'standardPassword' : ssGenPass() , 'pluginPassword' : ssGenPass()}
 
-ssConfigDataHandler(ssConfigData)
+configDataHandler('Shadowsocks' , ssConfigData)
 
 ssRefresh()
 
