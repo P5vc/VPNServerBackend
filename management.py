@@ -288,12 +288,19 @@ def ssGenClientConfigs():
 ################ General/Mixed Support Functions ################
 # Handle configuration data:
 def configDataHandler(application , data = False):
-	if (data):
-		with open(f'/root/{ application }ConfigData.dat' , 'wb') as configDataFile:
-			dump(data , configDataFile)
+	if (Path('/root/configData.dat').exists()):
+		with open('/root/configData.dat' , 'rb') as configDataFile:
+			savedData = load(configDataFile)
 	else:
-		with open('/root/{ application }ConfigData.dat' , 'rb') as configDataFile:
-			return load(configDataFile)
+		with open('/root/configData.dat' , 'wb') as configDataFile:
+			dump({} , configDataFile)
+
+	if (data):
+		savedData[application] = data
+		with open('/root/configData.dat' , 'wb') as configDataFile:
+			dump(savedData , configDataFile)
+	else:
+		return savedData[application]
 
 
 # Update ufw rules:
@@ -408,8 +415,15 @@ if ((not(Path('/root/WireGuardConfigData.dat').is_file())) or (not(Path('/root/S
 # Main tasks:
 # Create a list of desired user profiles:
 users = []
+pUsers = []
+
 with open('/root/' + SERVER_ID + '.conf' , 'r') as usersFile:
 	users = usersFile.read().split()
+
+for i in range(0 , len(users)):
+	if (users[i][ : 5] == 'puser'):
+		users[i] = users[i][1 : ]
+		pUsers.append(users[i])
 
 # Add/Remove users to/from WireGuard configuration data:
 wgConfigData = {}
