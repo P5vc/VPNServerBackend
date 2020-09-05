@@ -288,15 +288,34 @@ def ssGenClientConfigs():
 ################ General/Mixed Support Functions ################
 # Handle configuration data:
 def configDataHandler(application , data = False):
+	savedData = {}
+	pUsersData = {}
 	if (Path('/root/configData.dat').exists()):
 		with open('/root/configData.dat' , 'rb') as configDataFile:
 			savedData = load(configDataFile)
 	else:
+		with open('/root/pUsers.dat' , 'rb') as persistentConfigDataFile:
+			pUsersData = load(persistentConfigDataFile)
 		with open('/root/configData.dat' , 'wb') as configDataFile:
-			dump({} , configDataFile)
+			dump(pUsersData , configDataFile)
+
+
+	with open('/root/pUsers.dat' , 'rb') as persistentConfigDataFile:
+		pUsersData = load(persistentConfigDataFile)
+
 
 	if (data):
+		for user in data:
+			if (user in pUsers):
+				pUsersData[application][user] = data[user]
+			else:
+				if (user in pUsersData[application]):
+					pUsersData[application].remove(user)
+
 		savedData[application] = data
+
+		with open('/root/pUsers.dat' , 'wb') as persistentConfigDataFile:
+			dump(pUsersData , persistentConfigDataFile)
 		with open('/root/configData.dat' , 'wb') as configDataFile:
 			dump(savedData , configDataFile)
 	else:
