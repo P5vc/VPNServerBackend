@@ -407,7 +407,7 @@ def ufwUpdate():
 
 ################# Daily Update/Maintenance Tasks #################
 # Check if the initial user configuration files exist and create them if not:
-if ((not(Path('/root/WireGuardConfigData.dat').is_file())) or (not(Path('/root/ShadowsocksConfigData.dat').is_file()))):
+if (not(Path('/root/configData.dat').is_file())):
 	serverAddresses = wgGetNets(getServerAddresses = True)[0]
 	configServerAddresses = ('Address = ' + serverAddresses + '\n')
 
